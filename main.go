@@ -41,7 +41,7 @@ func main() {
 
 	dbConn, err := gorm.Open("postgres", connStr)
 	if err != nil {
-		logrus.Error(err)
+		logrus.Fatal(err)
 	}
 
 	err = dbConn.DB().Ping()

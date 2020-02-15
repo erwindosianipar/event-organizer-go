@@ -117,13 +117,27 @@ func (h *UserHandler) userLogin(res http.ResponseWriter, req *http.Request) {
 	dataUser, err := h.UserService.GetUserByEmail(reqUser.Email)
 	if err != nil {
 		logrus.Error(err)
+		return
 	}
 
 	inputPassword := []byte(reqUser.Password)
 	hashedPassword := dataUser.Password
 
+	dataUser = &models.User{
+		OrmModel:       models.OrmModel{
+			ID: dataUser.OrmModel.ID,
+		},
+		Email:          dataUser.Email,
+		Name:           dataUser.Name,
+		Role:           dataUser.Role,
+		EventOrganizer: models.EventOrganizer{
+			IsVerify: false,
+		},
+	}
+
 	if util.IsPasswordSame(hashedPassword, inputPassword) {
 		util.HandleSuccess(res, http.StatusOK, dataUser)
+		return
 	} else {
 		util.HandleError(res, http.StatusForbidden, "Email or password is not match.")
 		return
@@ -177,7 +191,7 @@ func (h *UserHandler) deleteUser(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	util.HandleSuccess(res, http.StatusOK, "User has been deleted.")
+	util.HandleError(res, http.StatusOK, "User has been deleted.")
 }
 
 func (h *UserHandler) upgradeUser(res http.ResponseWriter, req *http.Request) {
@@ -229,10 +243,6 @@ func (h *UserHandler) upgradeUser(res http.ResponseWriter, req *http.Request) {
 		util.HandleError(res, http.StatusBadRequest, "No data user with id you entered.")
 		return
 	}
-
-	//email := response.Email
-	//password := response.Password
-	//name := response.Name
 
 	newUser, err := h.UserService.UpgradeUser(&reqUser)
 	if err != nil {
