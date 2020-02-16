@@ -25,7 +25,7 @@ func (h *UserService) GetAllUser() ([]*models.UserNoPassword, error) {
 	return h.UserRepo.GetAllUser()
 }
 
-func (h *UserService) GetUserByID(id int) (*models.User, error) {
+func (h *UserService) GetUserByID(id int) (*models.UserNoPassword, error) {
 	return h.UserRepo.GetUserByID(id)
 }
 
@@ -41,6 +41,6 @@ func (h *UserService) GetUserByEmail(email string) (*models.User, error) {
 	return h.UserRepo.GetUserByEmail(email)
 }
 
-func (h *UserService) UpgradeUser(user *models.User) (*models.User, error) {
+func (h *UserService) UpgradeUser(user *models.User) (*models.UserNoPassword, error) {
 	return h.UserRepo.UpgradeUser(user)
 }

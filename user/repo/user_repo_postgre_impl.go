@@ -48,24 +48,15 @@ func (h *UserRepoPostgreImpl) GetAllUser() ([]*models.UserNoPassword, error) {
 	return userList, nil
 }
 
-func (h *UserRepoPostgreImpl) GetUserByID(id int) (*models.User, error) {
-	dataUser := new(models.User)
+func (h *UserRepoPostgreImpl) GetUserByID(id int) (*models.UserNoPassword, error) {
+	dataUser := new(models.UserNoPassword)
 
 	if err := h.db.Table("users").Where("id = ?", id).First(&dataUser).Error; err != nil {
 		logrus.Error(err)
 		return nil, errors.New("ERROR: get data user by id")
 	}
 
-	return &models.User{
-		OrmModel:       models.OrmModel{
-			ID: dataUser.OrmModel.ID,
-		},
-		Email:          dataUser.Email,
-		Name:           dataUser.Name,
-		Avatar:         dataUser.Avatar,
-		Role:           dataUser.Role,
-		EventOrganizer: models.EventOrganizer{},
-	}, nil
+	return dataUser, nil
 }
 
 func (h *UserRepoPostgreImpl) DeleteUser(id int) (*models.User, error)  {
@@ -99,7 +90,7 @@ func (h *UserRepoPostgreImpl) GetUserByEmail(email string) (*models.User, error)
 	return dataUser, nil
 }
 
-func (h *UserRepoPostgreImpl) UpgradeUser(user *models.User) (*models.User, error) {
+func (h *UserRepoPostgreImpl) UpgradeUser(user *models.User) (*models.UserNoPassword, error) {
 	h.db.Table("users").Where("id = ?", user.ID).Updates(map[string]interface{}{
 		"name_eo" : user.NameEo,
 		"ktp_number" : user.KTPNumber,
@@ -107,5 +98,10 @@ func (h *UserRepoPostgreImpl) UpgradeUser(user *models.User) (*models.User, erro
 		"siup_number" : user.SIUPNumber,
 	})
 
-	return user, nil
+	newUser, err := h.GetUserByID(int(user.ID))
+	if err != nil {
+		logrus.Error(err)
+	}
+
+	return newUser, nil
 }
