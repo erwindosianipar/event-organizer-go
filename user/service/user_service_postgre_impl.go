@@ -21,7 +21,7 @@ func (h *UserService) Register(user *models.User) (*models.User, error) {
 	}
 }
 
-func (h *UserService) GetAllUser() ([]*models.User, error) {
+func (h *UserService) GetAllUser() ([]*models.UserNoPassword, error) {
 	return h.UserRepo.GetAllUser()
 }
 

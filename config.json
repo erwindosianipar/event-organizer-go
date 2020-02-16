@@ -4,6 +4,6 @@
     "port": "5432",
     "user": "postgres",
     "pass": "erwindosianipar",
-    "name": "DB_NAME"
+    "name": "eventorganizer"
   }
 }

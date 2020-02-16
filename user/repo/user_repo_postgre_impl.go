@@ -25,12 +25,20 @@ func (h *UserRepoPostgreImpl) Register(user *models.User) (*models.User, error) 
 		logrus.Error(err)
 		return nil, errors.New("ERROR: insert data user")
 	}
-	
-	return user, nil
+
+	return &models.User{
+		OrmModel:       models.OrmModel{
+			ID: user.OrmModel.ID,
+		},
+		Email:          user.Email,
+		Name:           user.Name,
+		Avatar:         user.Avatar,
+		Role:           user.Avatar,
+	}, nil
 }
 
-func (h *UserRepoPostgreImpl) GetAllUser() ([]*models.User, error) {
-	userList := make([]*models.User, 0)
+func (h *UserRepoPostgreImpl) GetAllUser() ([]*models.UserNoPassword, error) {
+	userList := make([]*models.UserNoPassword, 0)
 
 	if err := h.db.Table("users").Find(&userList).Error; err != nil {
 		logrus.Error(err)
@@ -48,7 +56,16 @@ func (h *UserRepoPostgreImpl) GetUserByID(id int) (*models.User, error) {
 		return nil, errors.New("ERROR: get data user by id")
 	}
 
-	return dataUser, nil
+	return &models.User{
+		OrmModel:       models.OrmModel{
+			ID: dataUser.OrmModel.ID,
+		},
+		Email:          dataUser.Email,
+		Name:           dataUser.Name,
+		Avatar:         dataUser.Avatar,
+		Role:           dataUser.Role,
+		EventOrganizer: models.EventOrganizer{},
+	}, nil
 }
 
 func (h *UserRepoPostgreImpl) DeleteUser(id int) (*models.User, error)  {
@@ -84,12 +101,11 @@ func (h *UserRepoPostgreImpl) GetUserByEmail(email string) (*models.User, error)
 
 func (h *UserRepoPostgreImpl) UpgradeUser(user *models.User) (*models.User, error) {
 	h.db.Table("users").Where("id = ?", user.ID).Updates(map[string]interface{}{
-		"name_eo" : user.EventOrganizer.NameEo,
-		"ktp_number" : user.EventOrganizer.KTPNumber,
-		"siup_number" : user.EventOrganizer.SIUPNumber,
+		"name_eo" : user.NameEo,
+		"ktp_number" : user.KTPNumber,
+		"ktp_photo" : user.KTPPhoto,
+		"siup_number" : user.SIUPNumber,
 	})
-
-	//h.db.Model(&user).Updates(map[string]interface{}{"name_eo" : nameEo, "ktp_number" : ktpNumber, "siup_number" : siupNumber})
 
 	return user, nil
 }
