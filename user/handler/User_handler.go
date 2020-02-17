@@ -2,18 +2,21 @@ package handler
 
 import (
 	"encoding/json"
-	"golang.org/x/crypto/bcrypt"
-	"io/ioutil"
-	"net/http"
-	"strconv"
-
 	"eventorganizer/golang/models"
 	"eventorganizer/golang/user"
 	"eventorganizer/golang/util"
-
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
+	"github.com/thanhpk/randstr"
+	"golang.org/x/crypto/bcrypt"
 	_ "golang.org/x/crypto/bcrypt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
 )
 
 type UserHandler struct {
@@ -59,7 +62,7 @@ func (h *UserHandler) userRegister(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if len(reqUser.Name) < 3 {
-		util.HandleError(res, http.StatusBadRequest,"Name cannot be empty and must be more than 3 characters.")
+		util.HandleError(res, http.StatusBadRequest, "Name cannot be empty and must be more than 3 characters.")
 		return
 	}
 
@@ -78,7 +81,7 @@ func (h *UserHandler) userRegister(res http.ResponseWriter, req *http.Request) {
 	if newUser != nil {
 		util.HandleSuccess(res, http.StatusCreated, newUser)
 	} else {
-		util.HandleError(res, http.StatusBadRequest,"Email already used by someone.")
+		util.HandleError(res, http.StatusBadRequest, "Email already used by someone.")
 	}
 }
 
@@ -100,12 +103,12 @@ func (h *UserHandler) userLogin(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if !(util.IsEmailValid(reqUser.Email)) {
-		util.HandleError(res, http.StatusBadRequest,"Email cannot be empty and must be a valid email.")
+		util.HandleError(res, http.StatusBadRequest, "Email cannot be empty and must be a valid email.")
 		return
 	}
 
 	if len(reqUser.Password) < 5 {
-		util.HandleError(res, http.StatusBadRequest,"Password cannot be empty and must be more than 5 characters.")
+		util.HandleError(res, http.StatusBadRequest, "Password cannot be empty and must be more than 5 characters.")
 		return
 	}
 
@@ -124,14 +127,19 @@ func (h *UserHandler) userLogin(res http.ResponseWriter, req *http.Request) {
 	hashedPassword := dataUser.Password
 
 	dataUser = &models.User{
-		OrmModel:       models.OrmModel{
+		OrmModel: models.OrmModel{
 			ID: dataUser.OrmModel.ID,
 		},
-		Email:          dataUser.Email,
-		Name:           dataUser.Name,
-		Role:           dataUser.Role,
+		Email:            dataUser.Email,
+		Name:             dataUser.Name,
+		Role:             dataUser.Role,
+		SubmissionStatus: dataUser.SubmissionStatus,
 		EventOrganizer: models.EventOrganizer{
-			IsVerify: false,
+			NameEo:     dataUser.EventOrganizer.NameEo,
+			KTPNumber:  dataUser.EventOrganizer.KTPNumber,
+			KTPPhoto:   dataUser.EventOrganizer.KTPPhoto,
+			SIUPNumber: dataUser.EventOrganizer.SIUPNumber,
+			IsVerify:   dataUser.EventOrganizer.IsVerify,
 		},
 	}
 
@@ -195,53 +203,85 @@ func (h *UserHandler) deleteUser(res http.ResponseWriter, req *http.Request) {
 }
 
 func (h *UserHandler) upgradeUser(res http.ResponseWriter, req *http.Request) {
-	dataUser, err := ioutil.ReadAll(req.Body)
+	id := req.FormValue("id")
+	if len(id) < 1 {
+		util.HandleError(res, http.StatusBadRequest, "id cannot be empty.")
+		return
+	}
+
+	ID, err := strconv.Atoi(id)
 	if err != nil {
-		util.HandleError(res, http.StatusBadRequest, "Oops, something went wrong.")
+		util.HandleError(res, http.StatusBadRequest, "id must be a valid number.")
+		return
+	}
+
+	_, err = h.UserService.GetUserByID(ID)
+	if err != nil {
+		util.HandleError(res, http.StatusBadRequest, "No data user with ID you entered.")
+		return
+	}
+
+	nameEO := req.FormValue("name_eo")
+	if len(nameEO) < 5 {
+		util.HandleError(res, http.StatusBadRequest, "name_eo cannot be empty and must more than 5 characters.")
+		return
+	}
+
+	ktpNumber := req.FormValue("ktp_number")
+	if len(ktpNumber) < 10 {
+		util.HandleError(res, http.StatusBadRequest, "ktp_number cannot be empty and must more than 10 characters.")
+		return
+	}
+
+	siupNumber := req.FormValue("siup_number")
+	if len(siupNumber) < 10 {
+		util.HandleError(res, http.StatusBadRequest, "siup_number cannot be empty and must more than 10 characters.")
+		return
+	}
+
+	ktpPhoto, handler, err := req.FormFile("ktp_photo")
+	if err != nil {
+		util.HandleError(res, http.StatusBadRequest, "ktp_photo must be a picture file and cannot be empty.")
+		logrus.Error(err)
+		return
+	}
+	defer ktpPhoto.Close()
+
+	random := randstr.Hex(10)
+	fileName := fmt.Sprintf("%s%s", "ktp-user-"+id+"-"+random, filepath.Ext(handler.Filename))
+
+	dir, err := os.Getwd()
+	if err != nil {
+		util.HandleError(res, http.StatusInternalServerError, "Oops, something went wrong.")
 		logrus.Error(err)
 		return
 	}
 
-	reqUser := models.User{}
-
-	err = json.Unmarshal(dataUser, &reqUser)
+	fileLocation := filepath.Join(dir, "assets", fileName)
+	targetFile, err := os.OpenFile(fileLocation, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
-		util.HandleError(res, http.StatusBadRequest, "Request body is not valid.")
+		util.HandleError(res, http.StatusInternalServerError, "Oops, something went wrong.")
+		logrus.Error(err)
+		return
+	}
+	defer targetFile.Close()
+
+	if _, err := io.Copy(targetFile, ktpPhoto); err != nil {
+		util.HandleError(res, http.StatusInternalServerError, "Oops, something went wrong.")
 		logrus.Error(err)
 		return
 	}
 
-	if reqUser.ID == 0 {
-		util.HandleError(res, http.StatusBadRequest, "ID user cannot be empty.")
-		return
-	}
-
-	if len(reqUser.EventOrganizer.NameEo) < 5 {
-		util.HandleError(res, http.StatusBadRequest, "EO name cannot be empty and must more than 5 characters.")
-		return
-	}
-
-	if len(reqUser.EventOrganizer.KTPNumber) < 10 {
-		util.HandleError(res, http.StatusBadRequest, "KTP number cannot be empty and must more than 10 characters.")
-		return
-	}
-
-	if reqUser.EventOrganizer.KTPPhoto == "" {
-		util.HandleError(res, http.StatusBadRequest, "KTP photo cannot be empty.")
-		return
-	}
-
-	if len(reqUser.EventOrganizer.SIUPNumber) < 10 {
-		util.HandleError(res, http.StatusBadRequest, "SIUP number cannot be empty and must more than 10 characters.")
-		return
-	}
-
-	id := int(reqUser.ID)
-
-	_, err = h.UserService.GetUserByID(id)
-	if err != nil {
-		util.HandleError(res, http.StatusBadRequest, "No data user with id you entered.")
-		return
+	reqUser := models.User{
+		OrmModel:         models.OrmModel{
+			ID: uint(ID),
+		},
+		EventOrganizer: models.EventOrganizer{
+			NameEo:     nameEO,
+			KTPNumber:  ktpNumber,
+			KTPPhoto:   fileName,
+			SIUPNumber: siupNumber,
+		},
 	}
 
 	newUser, err := h.UserService.UpgradeUser(&reqUser)

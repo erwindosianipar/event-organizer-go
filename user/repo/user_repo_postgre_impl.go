@@ -20,20 +20,22 @@ func CreateUserRepoPostgreImpl(db *gorm.DB) user.UserRepo {
 	return &UserRepoPostgreImpl{db}
 }
 
-func (h *UserRepoPostgreImpl) Register(user *models.User) (*models.User, error)  {
+func (h *UserRepoPostgreImpl) Register(user *models.User) (*models.UserNoPassword, error) {
 	if err := h.db.Table("users").Save(&user).Error; err != nil {
 		logrus.Error(err)
 		return nil, errors.New("ERROR: insert data user")
 	}
 
-	return &models.User{
-		OrmModel:       models.OrmModel{
+	return &models.UserNoPassword{
+		OrmModel: models.OrmModel{
 			ID: user.OrmModel.ID,
 		},
-		Email:          user.Email,
-		Name:           user.Name,
-		Avatar:         user.Avatar,
-		Role:           user.Avatar,
+		Email:            user.Email,
+		Name:             user.Name,
+		Avatar:           user.Avatar,
+		Role:             user.Role,
+		SubmissionStatus: user.SubmissionStatus,
+		EventOrganizer:   models.EventOrganizer{},
 	}, nil
 }
 
@@ -59,7 +61,7 @@ func (h *UserRepoPostgreImpl) GetUserByID(id int) (*models.UserNoPassword, error
 	return dataUser, nil
 }
 
-func (h *UserRepoPostgreImpl) DeleteUser(id int) (*models.User, error)  {
+func (h *UserRepoPostgreImpl) DeleteUser(id int) (*models.User, error) {
 	if err := h.db.Table("users").Where("id = ?", id).Delete(&models.User{}).Error; err != nil {
 		logrus.Error(err)
 		return nil, errors.New("ERROR: delete data user")
@@ -92,10 +94,11 @@ func (h *UserRepoPostgreImpl) GetUserByEmail(email string) (*models.User, error)
 
 func (h *UserRepoPostgreImpl) UpgradeUser(user *models.User) (*models.UserNoPassword, error) {
 	h.db.Table("users").Where("id = ?", user.ID).Updates(map[string]interface{}{
-		"name_eo" : user.NameEo,
-		"ktp_number" : user.KTPNumber,
-		"ktp_photo" : user.KTPPhoto,
-		"siup_number" : user.SIUPNumber,
+		"submission_status": "submitted",
+		"name_eo":           user.NameEo,
+		"ktp_number":        user.KTPNumber,
+		"ktp_photo":         user.KTPPhoto,
+		"siup_number":       user.SIUPNumber,
 	})
 
 	newUser, err := h.GetUserByID(int(user.ID))
