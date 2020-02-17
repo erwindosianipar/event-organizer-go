@@ -23,7 +23,7 @@ func CreateUserRepoPostgreImpl(db *gorm.DB) user.UserRepo {
 func (h *UserRepoPostgreImpl) Register(user *models.User) (*models.UserNoPassword, error) {
 	if err := h.db.Table("users").Save(&user).Error; err != nil {
 		logrus.Error(err)
-		return nil, errors.New("ERROR: insert data user")
+		return nil, errors.New("ERROR: Error when insert data user into database")
 	}
 
 	return &models.UserNoPassword{
@@ -44,7 +44,7 @@ func (h *UserRepoPostgreImpl) GetAllUser() ([]*models.UserNoPassword, error) {
 
 	if err := h.db.Table("users").Find(&userList).Error; err != nil {
 		logrus.Error(err)
-		return nil, errors.New("ERROR: get all data users")
+		return nil, errors.New("ERROR: Error when get all data users")
 	}
 
 	return userList, nil
@@ -55,7 +55,7 @@ func (h *UserRepoPostgreImpl) GetUserByID(id int) (*models.UserNoPassword, error
 
 	if err := h.db.Table("users").Where("id = ?", id).First(&dataUser).Error; err != nil {
 		logrus.Error(err)
-		return nil, errors.New("ERROR: get data user by id")
+		return nil, errors.New("ERROR: Error no data user with id you entered")
 	}
 
 	return dataUser, nil
@@ -64,7 +64,7 @@ func (h *UserRepoPostgreImpl) GetUserByID(id int) (*models.UserNoPassword, error
 func (h *UserRepoPostgreImpl) DeleteUser(id int) (*models.User, error) {
 	if err := h.db.Table("users").Where("id = ?", id).Delete(&models.User{}).Error; err != nil {
 		logrus.Error(err)
-		return nil, errors.New("ERROR: delete data user")
+		return nil, errors.New("ERROR: Error when delete data user")
 	}
 
 	return nil, nil
@@ -86,7 +86,7 @@ func (h *UserRepoPostgreImpl) GetUserByEmail(email string) (*models.User, error)
 
 	if err := h.db.Table("users").Where("email = ?", email).First(&dataUser).Error; err != nil {
 		logrus.Error(err)
-		return nil, errors.New("ERROR: get data user by email")
+		return nil, errors.New("ERROR: Error when get data user by email")
 	}
 
 	return dataUser, nil
@@ -101,10 +101,33 @@ func (h *UserRepoPostgreImpl) UpgradeUser(user *models.User) (*models.UserNoPass
 		"siup_number":       user.SIUPNumber,
 	})
 
-	newUser, err := h.GetUserByID(int(user.ID))
+	dataUser, err := h.GetUserByID(int(user.ID))
 	if err != nil {
 		logrus.Error(err)
+		return nil, errors.New("ERROR: Error when get data user by id")
 	}
 
-	return newUser, nil
+	return dataUser, nil
+}
+
+func (h *UserRepoPostgreImpl) HandleUpgrade(id int, status string) (*models.UserNoPassword, error) {
+	isVerify := false
+	role := "user"
+	if status == "accepted" {
+		role = "event_organizer"
+		isVerify = true
+	}
+
+	dataUser, _ := h.GetUserByID(id)
+	if dataUser.SubmissionStatus == "not_submit" {
+		return nil, errors.New("ERROR: This user is not submit any request yet")
+	}
+
+	h.db.Table("users").Where("id = ?", id).Updates(map[string]interface{}{
+		"role":              role,
+		"submission_status": status,
+		"is_verify":         isVerify,
+	})
+
+	return dataUser, nil
 }
