@@ -5,7 +5,7 @@ import (
 )
 
 type UserService interface {
-	Register(user *models.User) (*models.User, error)
+	Register(user *models.User) (*models.UserNoPassword, error)
 	GetAllUser() ([]*models.UserNoPassword,error)
 	GetUserByID(id int) (*models.UserNoPassword,error)
 	DeleteUser(id int) (*models.User, error)

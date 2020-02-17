@@ -13,7 +13,7 @@ func CreateUserService(userRepo user.UserRepo) user.UserService {
 	return &UserService{userRepo}
 }
 
-func (h *UserService) Register(user *models.User) (*models.User, error) {
+func (h *UserService) Register(user *models.User) (*models.UserNoPassword, error) {
 	if h.IsAnyEmailUser(user.Email) {
 		return nil, nil
 	} else {
