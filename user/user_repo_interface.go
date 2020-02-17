@@ -12,4 +12,5 @@ type UserRepo interface {
 	IsAnyEmailUser(email string) bool
 	GetUserByEmail(email string) (*models.User, error)
 	UpgradeUser(user *models.User) (*models.UserNoPassword, error)
+	HandleUpgrade(id int, status string) (*models.UserNoPassword, error)
 }

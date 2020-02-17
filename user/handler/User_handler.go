@@ -2,21 +2,18 @@ package handler
 
 import (
 	"encoding/json"
+	"io/ioutil"
+	"net/http"
+	"strconv"
+
 	"eventorganizer/golang/models"
 	"eventorganizer/golang/user"
 	"eventorganizer/golang/util"
-	"fmt"
+
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
-	"github.com/thanhpk/randstr"
 	"golang.org/x/crypto/bcrypt"
 	_ "golang.org/x/crypto/bcrypt"
-	"io"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strconv"
 )
 
 type UserHandler struct {
@@ -32,6 +29,7 @@ func CreateUserHandler(r *mux.Router, userService user.UserService) {
 	r.HandleFunc("/user/{id}", userHandler.getUserByID).Methods(http.MethodGet)
 	r.HandleFunc("/user/{id}", userHandler.deleteUser).Methods(http.MethodDelete)
 	r.HandleFunc("/user/upgrade", userHandler.upgradeUser).Methods(http.MethodPost)
+	r.HandleFunc("/user/upgrade/handle", userHandler.handleUpgrade).Methods(http.MethodPut)
 }
 
 func (h *UserHandler) userRegister(res http.ResponseWriter, req *http.Request) {
@@ -68,21 +66,28 @@ func (h *UserHandler) userRegister(res http.ResponseWriter, req *http.Request) {
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(reqUser.Password), 10)
 	if err != nil {
-		logrus.Fatal(err)
+		util.HandleError(res, http.StatusInternalServerError, "Oops, something went wrong.")
+		logrus.Error(err)
+		return
 	}
 
 	reqUser.Password = string(hash)
 
-	newUser, err := h.UserService.Register(&reqUser)
-	if err != nil {
-		logrus.Fatal(err)
+	if h.UserService.IsAnyEmailUser(reqUser.Email) {
+		util.HandleError(res, http.StatusBadRequest, "Email already used by someone.")
+		logrus.Error(err)
+		return
 	}
 
-	if newUser != nil {
-		util.HandleSuccess(res, http.StatusCreated, newUser)
-	} else {
-		util.HandleError(res, http.StatusBadRequest, "Email already used by someone.")
+	newUser, err := h.UserService.Register(&reqUser)
+	if err != nil {
+		util.HandleError(res, http.StatusInternalServerError, err.Error())
+		logrus.Fatal(err)
+		return
 	}
+
+	util.HandleSuccess(res, http.StatusCreated, newUser)
+	return
 }
 
 func (h *UserHandler) userLogin(res http.ResponseWriter, req *http.Request) {
@@ -104,21 +109,25 @@ func (h *UserHandler) userLogin(res http.ResponseWriter, req *http.Request) {
 
 	if !(util.IsEmailValid(reqUser.Email)) {
 		util.HandleError(res, http.StatusBadRequest, "Email cannot be empty and must be a valid email.")
+		logrus.Error(err)
 		return
 	}
 
 	if len(reqUser.Password) < 5 {
 		util.HandleError(res, http.StatusBadRequest, "Password cannot be empty and must be more than 5 characters.")
+		logrus.Error(err)
 		return
 	}
 
 	if !(h.UserService.IsAnyEmailUser(reqUser.Email)) {
 		util.HandleError(res, http.StatusForbidden, "Email is not match with any email in our database.")
+		logrus.Error(err)
 		return
 	}
 
 	dataUser, err := h.UserService.GetUserByEmail(reqUser.Email)
 	if err != nil {
+		util.HandleError(res, http.StatusBadRequest, err.Error())
 		logrus.Error(err)
 		return
 	}
@@ -126,40 +135,26 @@ func (h *UserHandler) userLogin(res http.ResponseWriter, req *http.Request) {
 	inputPassword := []byte(reqUser.Password)
 	hashedPassword := dataUser.Password
 
-	dataUser = &models.User{
-		OrmModel: models.OrmModel{
-			ID: dataUser.OrmModel.ID,
-		},
-		Email:            dataUser.Email,
-		Name:             dataUser.Name,
-		Role:             dataUser.Role,
-		SubmissionStatus: dataUser.SubmissionStatus,
-		EventOrganizer: models.EventOrganizer{
-			NameEo:     dataUser.EventOrganizer.NameEo,
-			KTPNumber:  dataUser.EventOrganizer.KTPNumber,
-			KTPPhoto:   dataUser.EventOrganizer.KTPPhoto,
-			SIUPNumber: dataUser.EventOrganizer.SIUPNumber,
-			IsVerify:   dataUser.EventOrganizer.IsVerify,
-		},
+	getDataUser, _ := h.UserService.GetUserByID(int(dataUser.OrmModel.ID))
+	if util.IsPasswordSame(hashedPassword, inputPassword) {
+		util.HandleSuccess(res, http.StatusOK, getDataUser)
+		return
 	}
 
-	if util.IsPasswordSame(hashedPassword, inputPassword) {
-		util.HandleSuccess(res, http.StatusOK, dataUser)
-		return
-	} else {
-		util.HandleError(res, http.StatusForbidden, "Email or password is not match.")
-		return
-	}
+	util.HandleError(res, http.StatusForbidden, "Email or password is not match.")
+	return
 }
 
 func (h *UserHandler) getAllUser(res http.ResponseWriter, req *http.Request) {
 	listUser, err := h.UserService.GetAllUser()
 	if err != nil {
-		util.HandleError(res, http.StatusBadRequest, "Oops, something went wrong.")
+		util.HandleError(res, http.StatusBadRequest, err.Error())
+		logrus.Error(err)
 		return
 	}
 
 	util.HandleSuccess(res, http.StatusOK, listUser)
+	return
 }
 
 func (h *UserHandler) getUserByID(res http.ResponseWriter, req *http.Request) {
@@ -167,16 +162,19 @@ func (h *UserHandler) getUserByID(res http.ResponseWriter, req *http.Request) {
 	id, err := strconv.Atoi(param["id"])
 	if err != nil {
 		util.HandleError(res, http.StatusBadRequest, "Please provide valid user id.")
+		logrus.Error(err)
 		return
 	}
 
 	response, err := h.UserService.GetUserByID(id)
 	if err != nil {
 		util.HandleError(res, http.StatusBadRequest, err.Error())
+		logrus.Error(err)
 		return
 	}
 
 	util.HandleSuccess(res, http.StatusOK, response)
+	return
 }
 
 func (h *UserHandler) deleteUser(res http.ResponseWriter, req *http.Request) {
@@ -184,22 +182,26 @@ func (h *UserHandler) deleteUser(res http.ResponseWriter, req *http.Request) {
 	id, err := strconv.Atoi(param["id"])
 	if err != nil {
 		util.HandleError(res, http.StatusBadRequest, "Please provide valid user id.")
+		logrus.Error(err)
 		return
 	}
 
 	_, err = h.UserService.GetUserByID(id)
 	if err != nil {
-		util.HandleError(res, http.StatusBadRequest, "No data user with id you entered.")
+		util.HandleError(res, http.StatusBadRequest, err.Error())
+		logrus.Error(err)
 		return
 	}
 
 	_, err = h.UserService.DeleteUser(id)
 	if err != nil {
 		util.HandleError(res, http.StatusBadRequest, err.Error())
+		logrus.Error(err)
 		return
 	}
 
 	util.HandleError(res, http.StatusOK, "User has been deleted.")
+	return
 }
 
 func (h *UserHandler) upgradeUser(res http.ResponseWriter, req *http.Request) {
@@ -217,7 +219,7 @@ func (h *UserHandler) upgradeUser(res http.ResponseWriter, req *http.Request) {
 
 	_, err = h.UserService.GetUserByID(ID)
 	if err != nil {
-		util.HandleError(res, http.StatusBadRequest, "No data user with ID you entered.")
+		util.HandleError(res, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -239,6 +241,7 @@ func (h *UserHandler) upgradeUser(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	/*
 	ktpPhoto, handler, err := req.FormFile("ktp_photo")
 	if err != nil {
 		util.HandleError(res, http.StatusBadRequest, "ktp_photo must be a picture file and cannot be empty.")
@@ -247,7 +250,7 @@ func (h *UserHandler) upgradeUser(res http.ResponseWriter, req *http.Request) {
 	}
 	defer ktpPhoto.Close()
 
-	random := randstr.Hex(10)
+	random := randstr.Hex(5)
 	fileName := fmt.Sprintf("%s%s", "ktp-user-"+id+"-"+random, filepath.Ext(handler.Filename))
 
 	dir, err := os.Getwd()
@@ -271,24 +274,75 @@ func (h *UserHandler) upgradeUser(res http.ResponseWriter, req *http.Request) {
 		logrus.Error(err)
 		return
 	}
+	 */
 
 	reqUser := models.User{
-		OrmModel:         models.OrmModel{
+		OrmModel: models.OrmModel{
 			ID: uint(ID),
 		},
 		EventOrganizer: models.EventOrganizer{
 			NameEo:     nameEO,
 			KTPNumber:  ktpNumber,
-			KTPPhoto:   fileName,
+			KTPPhoto:   "default.png", // filename
 			SIUPNumber: siupNumber,
 		},
 	}
 
 	newUser, err := h.UserService.UpgradeUser(&reqUser)
 	if err != nil {
-		util.HandleError(res, http.StatusBadRequest, "Oops, something went wrong.")
+		util.HandleError(res, http.StatusBadRequest, err.Error())
+		logrus.Error(err)
 		return
 	}
 
 	util.HandleSuccess(res, http.StatusCreated, newUser)
+	return
+}
+
+func (h *UserHandler) handleUpgrade(res http.ResponseWriter, req *http.Request) {
+	dataUpgrade, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		util.HandleError(res, http.StatusBadRequest, "Oops, something went wrong.")
+		logrus.Error(err)
+		return
+	}
+
+	reqUser := models.User{}
+
+	err = json.Unmarshal(dataUpgrade, &reqUser)
+	if err != nil {
+		util.HandleError(res, http.StatusBadRequest, "Request body is not valid.")
+		logrus.Error(err)
+		return
+	}
+
+	if reqUser.OrmModel.ID == 0 {
+		util.HandleError(res, http.StatusBadRequest, "id user cannot be empty.")
+		logrus.Error(err)
+		return
+	}
+
+	_, err = h.UserService.GetUserByID(int(reqUser.OrmModel.ID))
+	if err != nil {
+		util.HandleError(res, http.StatusBadRequest, err.Error())
+		logrus.Error(err)
+		return
+	}
+
+	status := reqUser.SubmissionStatus
+	if !(status == "rejected" || reqUser.SubmissionStatus == "accepted") {
+		util.HandleError(res, http.StatusBadRequest, "submission_status must be filled in with rejected or accepted.")
+		logrus.Error(err)
+		return
+	}
+
+	dataUser, err := h.UserService.HandleUpgrade(int(reqUser.OrmModel.ID), status)
+	if err != nil {
+		util.HandleError(res, http.StatusInternalServerError, err.Error())
+		logrus.Error(err)
+		return
+	}
+
+	util.HandleSuccess(res, http.StatusOK, dataUser)
+	return
 }

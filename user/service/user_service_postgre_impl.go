@@ -14,11 +14,7 @@ func CreateUserService(userRepo user.UserRepo) user.UserService {
 }
 
 func (h *UserService) Register(user *models.User) (*models.UserNoPassword, error) {
-	if h.IsAnyEmailUser(user.Email) {
-		return nil, nil
-	} else {
-		return h.UserRepo.Register(user)
-	}
+	return h.UserRepo.Register(user)
 }
 
 func (h *UserService) GetAllUser() ([]*models.UserNoPassword, error) {
@@ -43,4 +39,8 @@ func (h *UserService) GetUserByEmail(email string) (*models.User, error) {
 
 func (h *UserService) UpgradeUser(user *models.User) (*models.UserNoPassword, error) {
 	return h.UserRepo.UpgradeUser(user)
+}
+
+func (h *UserService) HandleUpgrade(id int, status string) (*models.UserNoPassword, error) {
+	return h.UserRepo.HandleUpgrade(id, status)
 }

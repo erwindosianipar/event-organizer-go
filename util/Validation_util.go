@@ -1,8 +1,9 @@
 package util
 
 import (
-	"golang.org/x/crypto/bcrypt"
 	"regexp"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func IsEmailValid(email string) bool {
