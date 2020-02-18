@@ -5,5 +5,5 @@ type EventOrganizer struct {
 	KTPNumber  string `gorm:"ktp_number" json:"ktp_number,omitempty"`
 	KTPPhoto   string `gorm:"ktp_photo" json:"ktp_photo,omitempty"`
 	SIUPNumber string `gorm:"siup_number" json:"siup_number,omitempty"`
-	IsVerify   bool `gorm:"is_verify" json:"is_verify"`
+	IsVerify   bool   `gorm:"is_verify" json:"is_verify"`
 }

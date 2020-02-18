@@ -2,8 +2,13 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/thanhpk/randstr"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"eventorganizer/golang/models"
@@ -30,6 +35,7 @@ func CreateUserHandler(r *mux.Router, userService user.UserService) {
 	r.HandleFunc("/user/{id}", userHandler.deleteUser).Methods(http.MethodDelete)
 	r.HandleFunc("/user/upgrade", userHandler.upgradeUser).Methods(http.MethodPost)
 	r.HandleFunc("/user/upgrade/handle", userHandler.handleUpgrade).Methods(http.MethodPut)
+	r.HandleFunc("/user/event", userHandler.TransactionsEvent).Methods(http.MethodPost)
 }
 
 func (h *UserHandler) userRegister(res http.ResponseWriter, req *http.Request) {
@@ -206,6 +212,7 @@ func (h *UserHandler) deleteUser(res http.ResponseWriter, req *http.Request) {
 
 func (h *UserHandler) upgradeUser(res http.ResponseWriter, req *http.Request) {
 	id := req.FormValue("id")
+	fmt.Println(id)
 	if len(id) < 1 {
 		util.HandleError(res, http.StatusBadRequest, "id cannot be empty.")
 		return
@@ -241,8 +248,10 @@ func (h *UserHandler) upgradeUser(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	/*
+	fmt.Printf("%v %v %v %v \n", id, nameEO, ktpNumber, siupNumber)
+
 	ktpPhoto, handler, err := req.FormFile("ktp_photo")
+	fmt.Printf("%v", ktpPhoto)
 	if err != nil {
 		util.HandleError(res, http.StatusBadRequest, "ktp_photo must be a picture file and cannot be empty.")
 		logrus.Error(err)
@@ -274,7 +283,6 @@ func (h *UserHandler) upgradeUser(res http.ResponseWriter, req *http.Request) {
 		logrus.Error(err)
 		return
 	}
-	 */
 
 	reqUser := models.User{
 		OrmModel: models.OrmModel{
@@ -344,5 +352,136 @@ func (h *UserHandler) handleUpgrade(res http.ResponseWriter, req *http.Request) 
 	}
 
 	util.HandleSuccess(res, http.StatusOK, dataUser)
+	return
+}
+
+func (h *UserHandler) TransactionsEvent(res http.ResponseWriter, req *http.Request) {
+	id := req.FormValue("id_user")
+	if len(id) < 1 {
+		util.HandleError(res, http.StatusBadRequest, "id cannot be empty.")
+		return
+	}
+
+	ID, err := strconv.Atoi(id)
+	if err != nil {
+		util.HandleError(res, http.StatusBadRequest, "id must be a valid number.")
+		return
+	}
+
+	//Add Image
+	//bannerFoto, handler, err := req.FormFile("banner_foto")
+	//if err != nil {
+	//	util.HandleError(res, http.StatusBadRequest, "banner_foto must be a picture file and cannot be empty.")
+	//	logrus.Error(err)
+	//	return
+	//}
+	//defer bannerFoto.Close()
+	//
+	//random := randstr.Hex(5)
+	//fileName := fmt.Sprintf("%s%s", "banner-foto-"+id+"-"+random, filepath.Ext(handler.Filename))
+	//
+	//dir, err := os.Getwd()
+	//if err != nil {
+	//	util.HandleError(res, http.StatusInternalServerError, "Oops, something went wrong.")
+	//	logrus.Error(err)
+	//	return
+	//}
+	//
+	//fileLocation := filepath.Join(dir, "assets", fileName)
+	//targetFile, err := os.OpenFile(fileLocation, os.O_WRONLY|os.O_CREATE, 0666)
+	//if err != nil {
+	//	util.HandleError(res, http.StatusInternalServerError, "Oops, something went wrong.")
+	//	logrus.Error(err)
+	//	return
+	//}
+	//defer targetFile.Close()
+	//
+	//if _, err := io.Copy(targetFile, bannerFoto); err != nil {
+	//	util.HandleError(res, http.StatusInternalServerError, "Oops, something went wrong.")
+	//	logrus.Error(err)
+	//	return
+	//}
+
+	reqBanner := []models.Banner{}
+	req.ParseMultipartForm(32 << 20) // 32MB is the default used by FormFile
+	fhs := req.MultipartForm.File["banner_foto"]
+	for _, fh := range fhs {
+		f, err := fh.Open()
+		random := randstr.Hex(5)
+		fileName := fmt.Sprintf("%s%s", "banner-foto-"+id+"-"+random, filepath.Ext(fh.Filename))
+		dir, err := os.Getwd()
+		if err != nil {
+			util.HandleError(res, http.StatusInternalServerError, "Oops, something went wrong.")
+			logrus.Error(err)
+			return
+		}
+		fileLocation := filepath.Join(dir, "assets", fileName)
+		reqBanner = append(reqBanner,models.Banner{ID_User: ID, Banner_Foto: fileLocation})
+		targetFile, err := os.OpenFile(fileLocation, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			util.HandleError(res, http.StatusInternalServerError, "Oops, something went wrong.")
+			logrus.Error(err)
+			return
+		}
+		defer targetFile.Close()
+
+		if _, err := io.Copy(targetFile, f); err != nil {
+			util.HandleError(res, http.StatusInternalServerError, "Oops, something went wrong.")
+			logrus.Error(err)
+			return
+		}
+		f.Close()
+	}
+
+	name := req.FormValue("name")
+	if name == "" {
+		util.HandleError(res, http.StatusBadRequest, "name event cannot be empty.")
+		return
+	}
+	lokasi := req.FormValue("lokasi")
+	if lokasi == "" {
+		util.HandleError(res, http.StatusBadRequest, "location event cannot be empty.")
+		return
+	}
+	event_date := req.FormValue("event_date")
+	if event_date == "" {
+		util.HandleError(res, http.StatusBadRequest, "event_date event cannot be empty.")
+		return
+	}
+	kuota := req.FormValue("kuota")
+	if kuota == "" {
+		util.HandleError(res, http.StatusBadRequest, "quota event cannot be empty.")
+		return
+	}
+	yourKuota, err := strconv.Atoi(kuota)
+	if err != nil {
+		util.HandleError(res, http.StatusBadRequest, "quota must be a valid number.")
+		return
+	}
+	harga := req.FormValue("harga")
+	yourHarga, err := strconv.Atoi(harga)
+	if err != nil {
+		util.HandleError(res, http.StatusBadRequest, "price must be a valid number.")
+		return
+	}
+
+	reqEvent := models.Event{
+		ID_User:    uint(ID),
+		Name:       name,
+		Lokasi:     lokasi,
+		Event_date: event_date,
+		Kuota:      yourKuota,
+		Harga:      yourHarga,
+	}
+
+
+	err = h.UserService.TransactionsEvent(&reqEvent, &reqBanner)
+	if err != nil {
+		util.HandleError(res, http.StatusBadRequest, err.Error())
+		logrus.Error(err)
+		return
+	}
+
+	util.HandleSuccess(res, http.StatusCreated, nil)
 	return
 }

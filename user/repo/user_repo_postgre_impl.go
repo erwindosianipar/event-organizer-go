@@ -2,7 +2,6 @@ package repo
 
 import (
 	"errors"
-
 	"eventorganizer/golang/models"
 	"eventorganizer/golang/user"
 
@@ -131,3 +130,23 @@ func (h *UserRepoPostgreImpl) HandleUpgrade(id int, status string) (*models.User
 
 	return dataUser, nil
 }
+
+func (h *UserRepoPostgreImpl) AddEvent(event *models.Event, tx *gorm.DB) error {
+
+	if err := tx.Table("events").Save(&event).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *UserRepoPostgreImpl) AddBanner(banner *models.Banner ,tx *gorm.DB) error{
+	if err := tx.Table("banners").Save(&banner).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *UserRepoPostgreImpl) BeginTrans() *gorm.DB {
+	return h.db.Begin()
+}
+
