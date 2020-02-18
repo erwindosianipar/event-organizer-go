@@ -44,3 +44,23 @@ func (h *UserService) UpgradeUser(user *models.User) (*models.UserNoPassword, er
 func (h *UserService) HandleUpgrade(id int, status string) (*models.UserNoPassword, error) {
 	return h.UserRepo.HandleUpgrade(id, status)
 }
+
+func (h *UserService) TransactionsEvent(event *models.Event,banner *[]models.Banner) error {
+	tx := h.UserRepo.BeginTrans()
+	err := h.UserRepo.AddEvent(event,tx)
+	if err!=nil{
+		tx.Rollback()
+		return err
+	}
+
+	for _,yourBanner := range *banner{
+		err = h.UserRepo.AddBanner(&yourBanner,tx)
+		if err!=nil{
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit().Error
+}
+
+

@@ -57,7 +57,7 @@ func main() {
 	}()
 
 	dbConn.Debug().AutoMigrate(
-		&models.User{},
+		&models.User{},&models.Event{},&models.Banner{},
 		)
 
 	router := mux.NewRouter().StrictSlash(true)
@@ -66,8 +66,8 @@ func main() {
 	userService := userService.CreateUserService(userRepo)
 	userHandler.CreateUserHandler(router, userService)
 
-	fmt.Println("Starting web server at port : 8080")
-	err = http.ListenAndServe(": " + "8080", router)
+	fmt.Println("Starting web server at port : 8081")
+	err = http.ListenAndServe(": " + "8081", router)
 	if err != nil {
 		logrus.Fatal(err)
 	}
