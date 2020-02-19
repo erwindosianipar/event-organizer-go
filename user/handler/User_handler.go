@@ -291,7 +291,7 @@ func (h *UserHandler) upgradeUser(res http.ResponseWriter, req *http.Request) {
 		EventOrganizer: models.EventOrganizer{
 			NameEo:     nameEO,
 			KTPNumber:  ktpNumber,
-			KTPPhoto:   "default.png", // filename
+			KTPPhoto:   fileName,
 			SIUPNumber: siupNumber,
 		},
 	}
