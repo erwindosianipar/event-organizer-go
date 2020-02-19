@@ -82,10 +82,21 @@ func main() {
 	eventHandler.CreateEventHandler(router,eventService)
 	bannerHandler.CreateBannerHandler(router,bannerService)
 
-	fmt.Println("Starting web server at port : 8081")
-	err = http.ListenAndServe(": " + "8081", router)
+	go serverImage()
+
+	fmt.Println("Starting web server at port : 8082")
+	err = http.ListenAndServe(": " + "8082", router)
 	if err != nil {
 		logrus.Fatal(err)
 	}
 
+}
+
+func serverImage()  {
+	fs := http.FileServer(http.Dir("./assets"))
+	http.Handle("/", fs)
+
+	port := "8083"
+	fmt.Printf("Starting image server at http://localhost:%s/\n", port)
+	log.Fatal(http.ListenAndServe(":" + port, nil))
 }
