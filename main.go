@@ -1,6 +1,12 @@
 package main
 
 import (
+	bannerHandler "eventorganizer/golang/banner/handler"
+	bannerRepo "eventorganizer/golang/banner/repository"
+	bannerService "eventorganizer/golang/banner/service"
+	eventHandler "eventorganizer/golang/event/handler"
+	eventRepo "eventorganizer/golang/event/repository"
+	eventService "eventorganizer/golang/event/service"
 	"fmt"
 	"log"
 	"net/http"
@@ -63,8 +69,18 @@ func main() {
 	router := mux.NewRouter().StrictSlash(true)
 
 	userRepo := userRepo.CreateUserRepoPostgreImpl(dbConn)
+	eventRepo := eventRepo.CreateEventRepoPostgreImpl(dbConn)
+	bannerRepo := bannerRepo.CreateBannerRepoPostgreImpl(dbConn)
+
+
 	userService := userService.CreateUserService(userRepo)
+	eventService := eventService.CreateEventServicePostgreImpl(eventRepo,bannerRepo)
+	bannerService := bannerService.CreateBannerServicePostgreImpl(bannerRepo)
+
+
 	userHandler.CreateUserHandler(router, userService)
+	eventHandler.CreateEventHandler(router,eventService)
+	bannerHandler.CreateBannerHandler(router,bannerService)
 
 	fmt.Println("Starting web server at port : 8081")
 	err = http.ListenAndServe(": " + "8081", router)
