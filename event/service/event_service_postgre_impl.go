@@ -23,15 +23,16 @@ func (e *EventServicePostgreImpl) TransactionsEvent(event *models.Event, fileNam
 		return err
 	}
 
-	id_event := event.ID
-	for _,name := range fileName{
-		var yourBanner  = models.Banner{ID_Event:id_event,Banner_Foto:name}
-		err = e.bannerRepo.AddBanner(&yourBanner,tx)
-		if err!=nil{
-			tx.Rollback()
-			return err
-		}
-	}
+	//id_event := event.ID
+	//for _,name := range fileName{
+	//	var yourBanner  = models.Banner{ID_Event:id_event,Banner_Foto:name}
+	//	err = e.bannerRepo.AddBanner(&yourBanner,tx)
+	//	fmt.Println(name)
+	//	if err!=nil{
+	//		tx.Rollback()
+	//		return err
+	//	}
+	//}
 	return tx.Commit().Error
 }
 

@@ -101,6 +101,10 @@ func (e *EventHandler) TransactionsEvent(res http.ResponseWriter, req *http.Requ
 		return
 	}
 
+	var yourBanner  = []models.Banner{}
+	for _,name := range reqBanner{
+		yourBanner = append(yourBanner,models.Banner{Banner_Foto:name})
+	}
 	reqEvent := models.Event{
 		ID_User:    uint(ID),
 		Name:       name,
@@ -108,6 +112,7 @@ func (e *EventHandler) TransactionsEvent(res http.ResponseWriter, req *http.Requ
 		Event_date: event_date,
 		Kuota:      yourKuota,
 		Harga:      yourHarga,
+		Banner:yourBanner,
 	}
 
 
@@ -118,7 +123,7 @@ func (e *EventHandler) TransactionsEvent(res http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	util.HandleSuccess(res, http.StatusCreated, nil)
+	util.HandleSuccess(res, http.StatusCreated, reqEvent)
 	return
 }
 

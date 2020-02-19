@@ -28,3 +28,11 @@ func (b *BannerRepoPostgreImpl) GetAllBanner() (*[]models.Banner, error) {
 	}
 	return &banners,nil
 }
+
+func (b *BannerRepoPostgreImpl) GettBannerByIdEvent(id_event int) (*[]models.Banner, error) {
+	banners:=[]models.Banner{}
+	if err:= b.db.Where("id_event = ?",id_event).Find(&banners).Error;err!=nil{
+		return nil,err
+	}
+	return &banners,nil
+}

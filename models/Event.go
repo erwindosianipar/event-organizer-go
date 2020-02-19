@@ -10,5 +10,5 @@ type Event struct {
 	Event_date string `gorm:"event_date" json:"event_date,omitempty"`
 	Kuota      int    `gorm:"kuota" json:"kuota,omitempty"`
 	Harga      int    `gorm:"harga" json:"harga,omitempty"`
-	//Banner     []Banner `gorm:"foreignkey:UserRefer"`
+	Banner     []Banner `gorm:"foreignkey:EventRefer" json:"banner,omitempty"`
 }
