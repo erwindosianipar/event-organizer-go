@@ -26,13 +26,8 @@ func (e *EventRepoPostgreImpl) AddEvent(event *models.Event, tx *gorm.DB) error 
 }
 
 func (e *EventRepoPostgreImpl) GetAllEvent() (*[]models.Event, error) {
-	//listEvents := []models.ResponseListEvent{}
-	//if err:= e.db.Table("users").Select("users.id,users.name,events.lokasi").
-	//	Joins("left join events on events.id_user = users.id").Scan(&listEvents).Error;err!=nil{
-	//	return nil,err
-	//}
 	events := []models.Event{}
-	if err := e.db.Table("events").Find(&events).Error; err != nil {
+	if err := e.db.Preload("Banner").Find(&events).Error; err != nil {
 		return nil,err
 	}
 	return &events,nil
